@@ -1,0 +1,27 @@
+SJT There are applications in Japan that create zipfiles with directories
+SJT containing filenames encoded in Shift JIS.  There may be such software
+SJT in other countries as well.  As this is a violation of the Zip format
+SJT definition, this library implements only an option to read such
+SJT files.
+SJT TODO:
+SJT (1) Add a membernameencoding option to the main() function.
+SJT (2) Add a membernameencoding parameter to each function that may read a
+SJT filename from the zipfile directory, or call a function that
+SJT eventually does that.  Is this appropriate for -t?
+SJT (3) Add a check that the mode is "read" at appropriate places and
+SJT invoke the USAGE there, then exit.
+SJT (4) Check if membernameencoding is set, and if so use it, probably in
+SJT the same place as checking for UTF-8.  If the UTF-8 bit is set, obey
+SJT it, it's surely user error.
+SJT (5) Update the USAGE message.
+SJT (6) Update the docs (docstrings, library reference, NEWS).
+SJT (7) Add tests: (a) List a zipfile's SJIS-encoded directory.  (b) List
+SJT a UTF-8-encoded directory and an ISO-8859-1-encoded directory as
+SJT Shift-JIS.  (c) Check that USAGE is invoked on attempts to write a
+SJT zipfile in main().  (d) Check that an appropriate error is raised on
+SJT attempts to write in other functions.
+SJT (8) Add an appropriate error (see 7d)?
+SJT (9) Issue warning if both membernameencoding and utf-8 bit are set (see 4)?
+SJT (10) To do on request: support InfoZip encoding extension mentioned in
+SJT APPNOTE.TXT - .ZIP File Format Specification, v6.3.4.
+SJT (11) Do we need to support encryption?
