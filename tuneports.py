@@ -45,19 +45,50 @@ class PortDB:
             versions.append((m[2], m[3], m[4], bool(m[5]))),
             self.db[m[1]] = versions
 
+def test(ports, tests='all'):
+    if tests == 'all':
+        tests = ['stats', 'histogram', 'portlist']
+    if 'stats' in tests:
+        print("#errors =", len(ports.error_lines), "#ports =", len(ports.db))
+        if len(ports.error_lines):
+            it = iter(ports.error_lines)
+            print("header:", next(it))
+            for line in it:
+                print(line)
+    if 'histogram' in tests:
+        histogram = Counter(len(versions) for versions in ports.db.values())
+        print(len(histogram), min(histogram.keys()), max(histogram.keys()))
+
+        for i in range(1,max(histogram.keys())+1):
+            print(f"{histogram[i]}", end=" ")
+        print()
+
+    if 'portlist' in tests:
+        for i, (port, versions) in enumerate(ports.db.items()):
+            if i >= 10: break
+            print("==", port)
+            for version in versions:
+                print(version)
+    
 if __name__ == '__main__':
     ports = PortDB()
-    print("#errors =", len(ports.error_lines), "#ports =", len(ports.db))
-    if len(ports.error_lines):
-        it = iter(ports.error_lines)
-        print("header:", next(it))
-        for line in it:
-            print(line)
+    # test(ports)                # add argparse parser
 
-    histogram = Counter(len(versions) for versions in ports.db.values())
-    print(len(histogram), min(histogram.keys()), max(histogram.keys()))
+    for i, (port, versions) in enumerate(ports.db.items()):
+        prompt = []
+        for version in versions:
+            if not version[3]:
+                prompt.append(f"@{version[0]}_{version[1]}{version[2]}")
+        if prompt:
+            NL = '\n'
+            print(f"Delete these versions of {port}?\n{NL.join(prompt)}")
+            confirm = input("y/n/q? ")[0].lower()
+            if confirm == 'q':
+                break
+            if confirm == 'y':
+                for version in prompt:
+                    cmd = ["sudo", "port", "uninstall", port, version]
+                    proc = subprocess.run(cmd, stdout=subprocess.PIPE,
+                                          encoding='utf-8')
+                    print(proc.stdout, end='')
 
-    for i in range(1,max(histogram.keys())+1):
-        print(f"{histogram[i]}", end=" ")
-
-            
