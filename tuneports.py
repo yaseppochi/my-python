@@ -78,7 +78,9 @@ if __name__ == '__main__':
     for i, (port, versions) in enumerate(ports.db.items()):
         prompt = []
         for version in versions:
-            if not version[3]:
+            if version[3]:
+                print(f"Ignoring active version {version[:2]}")
+            else:
                 prompt.append(f"@{version[0]}_{version[1]}{version[2]}")
         if prompt:
             NL = '\n'
@@ -86,7 +88,7 @@ if __name__ == '__main__':
             confirm = input("y/n/q? ")[0].lower()
             if confirm == 'q':
                 break
-            if confirm == 'y':
+            elif confirm == 'y':
                 for version in prompt:
                     cmd[-2:] = port, version
                     proc = subprocess.run(cmd, stdout=subprocess.PIPE,
