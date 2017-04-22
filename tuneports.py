@@ -74,6 +74,7 @@ if __name__ == '__main__':
     ports = PortDB()
     # test(ports)                # add argparse parser
 
+    cmd = ["sudo", "port", "uninstall", None, None]
     for i, (port, versions) in enumerate(ports.db.items()):
         prompt = []
         for version in versions:
@@ -87,7 +88,7 @@ if __name__ == '__main__':
                 break
             if confirm == 'y':
                 for version in prompt:
-                    cmd = ["sudo", "port", "uninstall", port, version]
+                    cmd[-2:] = port, version
                     proc = subprocess.run(cmd, stdout=subprocess.PIPE,
                                           encoding='utf-8')
                     print(proc.stdout, end='')
