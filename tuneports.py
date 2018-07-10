@@ -83,8 +83,7 @@ if __name__ == '__main__':
             else:
                 prompt.append(f"@{version[0]}_{version[1]}{version[2]}")
         if prompt:
-            NL = '\n'
-            print(f"Delete these versions of {port}?\n{NL.join(prompt)}")
+            print(f"Delete these versions of {port}?\n{' '.join(prompt)}")
             confirm = input("y/n/q? ")[0].lower()
             if confirm == 'q':
                 break
