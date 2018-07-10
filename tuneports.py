@@ -79,7 +79,7 @@ if __name__ == '__main__':
         prompt = []
         for version in versions:
             if version[3]:
-                print(f"Ignoring active version {version[:2]}")
+                print(f"Ignoring active version {version[:2]} of {port}")
             else:
                 prompt.append(f"@{version[0]}_{version[1]}{version[2]}")
         if prompt:
