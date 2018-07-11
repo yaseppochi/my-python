@@ -74,12 +74,13 @@ if __name__ == '__main__':
     ports = PortDB()
     # test(ports)                # add argparse parser
 
+    tasks = []
     cmd = ["sudo", "port", "uninstall", None, None]
     for i, (port, versions) in enumerate(ports.db.items()):
         prompt = []
         for version in versions:
             if version[3]:
-                print(f"Ignoring active version {version[:2]} of {port}")
+                print(f"Skipping active version {version[:2]} of {port}")
             else:
                 prompt.append(f"@{version[0]}_{version[1]}{version[2]}")
         if prompt:
@@ -90,7 +91,12 @@ if __name__ == '__main__':
             elif confirm == 'y':
                 for version in prompt:
                     cmd[-2:] = port, version
-                    proc = subprocess.run(cmd, stdout=subprocess.PIPE,
-                                          encoding='utf-8')
-                    print(proc.stdout, end='')
+                    tasks.append(cmd[:])
+
+    for cmd in tasks:
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE, encoding='utf-8')
+        print(proc.stdout, end='')
+
+    plural = "s" if i > 1 else ""
+    print(f"{i} port{plural} processed.")
 
