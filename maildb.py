@@ -20,13 +20,30 @@
 
 import argparse
 import email
-from mailbox import mbox
+import mailbox
 import os
 import os.path
 import pickle
-import tempfile
+
+# TO DO
+# 1.  Add a function to list all recipients in a database entry.
+# 2.  Add a function to pretty-print a database entry.
+# 4.  Add a function to hash the payload.  Add a field to the database.
+# 5.  Add a function to merge database pickles.  Add a CLI argument.
+# 6.  Add code to dump a pickle database.
+# 7.  Add a function to identify list posts.
+# 8.  Add a function to prioritize deletions.
 
 # Code
+
+def summarize_duplicates(db):
+    print(len(db["fake-message-id@turnbull.sk.tsukuba.ac.jp"]),
+          'missing ID')
+    duplicates = 0
+    for i, (key, value) in enumerate(db.items()):
+        if len(value) > 1:
+            duplicates += 1
+    print(duplicates, "duplicates out of", i, "unique message IDs")
 
 # #### db should be a class and process_mailbox a method
 def process_mailbox(path, db, cls=mailbox.mbox):
@@ -40,9 +57,16 @@ def process_mailbox(path, db, cls=mailbox.mbox):
         d = {'mailbox-path' : path}
         for h in ('bcc', 'cc', 'date', 'from', 'message-id', 'to'):
             d[h] = m.get_all(h)
-        db[msgid] = db.get(msgid, []).append(d)
+        db[msgid] = value = db.get(msgid, [])
+        value.append(d)
 
 def find_and_load_pickle(path):
+    """
+    Load a pickle from PATH, and return a triple (database, fd, path).
+    If the pickle is corrupt, returns an open temporary file for fd.
+    Note: open(fd, ...) wraps the fd with a Python file stream.
+    """
+
     db = {}
     # #### This still has a race condition.
     if path is not None and os.path.exists(path):
@@ -52,6 +76,7 @@ def find_and_load_pickle(path):
             path = (None, path)
         except Exception:
             print('pickle', path, 'failed to load')
+            import tempfile
             path = tempfile.mkstemp(suffix='-' + os.path.basename(path),
                                     dir=os.path.dirname(path))
             print('will save new database to pickle', path[1])
@@ -136,4 +161,12 @@ if __name__ == '__main__':
                         help='Use CONFIG to configure this program.')
     args = parser.parse_args()
 
-    test_pickle()
+    db_info = find_and_load_pickle(args.pickle)
+    print("(database, fd, path) =", db_info)
+
+    db = db_info[0]
+    for box in args.mailboxes:
+        print('processing', box)
+        process_mailbox(box, db)
+
+    summarize_duplicates(db)
