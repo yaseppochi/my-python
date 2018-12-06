@@ -20,6 +20,8 @@
 
 import argparse
 import email
+import email.parser
+import email.policy
 import mailbox
 import os
 import os.path
@@ -30,35 +32,75 @@ import pickle
 # 2.  Add a function to pretty-print a database entry.
 # 4.  Add a function to hash the payload.  Add a field to the database.
 # 5.  Add a function to merge database pickles.  Add a CLI argument.
-# 6.  Add code to dump a pickle database.
 # 7.  Add a function to identify list posts.
 # 8.  Add a function to prioritize deletions.
+# 9.  Need to expand file names in case not called from shell.
+# 10. Add functionality to migrate database schema.
 
 # Code
 
-def summarize_duplicates(db):
-    print(len(db["fake-message-id@turnbull.sk.tsukuba.ac.jp"]),
+def summarize_database(db):
+    print(len(db['missing-message-id@turnbull.sk.tsukuba.ac.jp']),
           'missing ID')
     duplicates = 0
-    for i, (key, value) in enumerate(db.items()):
-        if len(value) > 1:
+    bodyless = 0
+    for i, (key, values) in enumerate(db.items()):
+        if len(values) > 1:
             duplicates += 1
-    print(duplicates, "duplicates out of", i, "unique message IDs")
+        for v in values:
+            bodyless += v['lacks-body']
+    print(duplicates, 'duplicates out of', i, 'unique message IDs')
+    print(bodyless, 'lacking body')
 
 # #### db should be a class and process_mailbox a method
 def process_mailbox(path, db, cls=mailbox.mbox):
     if os.path.isdir(path):
         raise IsADirectoryError(path)
+    errors = [[], []]
     box = cls(path, create=False)       # #### Probably raises.
-    for m in box:
-        msgid = m['message-id']
-        if not msgid:         # could be None or "" #### or " "?            
-            msgid = "fake-message-id@turnbull.sk.tsukuba.ac.jp"
-        d = {'mailbox-path' : path}
+    parser = email.parser.BytesParser(policy=email.policy.default)
+    for k in box.iterkeys():
+        try:
+            msgid = 'unparsed-message-id@turnbull.sk.tsukuba.ac.jp'
+            m = parser.parse(box.get_file(k))
+            msgid = m['message-id']
+            if not msgid:         # could be None or '' #### or ' '?            
+                msgid = 'missing-message-id@turnbull.sk.tsukuba.ac.jp'
+            lacks_body = True if m.get_body() is None else False
+        except UnicodeDecodeError:
+            errors[0].append((k, msgid))
+            continue
+        except Exception:
+            errors[1].append((k, msgid))
+            continue
+
+        d = { 'mailbox-path' : path,
+              'unix-from' : m.get_unixfrom(),
+              'lacks-body' : lacks_body }
         for h in ('bcc', 'cc', 'date', 'from', 'message-id', 'to'):
             d[h] = m.get_all(h)
         db[msgid] = value = db.get(msgid, [])
         value.append(d)
+
+    print('skipped due to UnicodeDecodeError:')
+    for msgid in errors[0]:
+        print(' ', msgid)
+    print('skipped due to other Exceptions:')
+    for msgid in errors[1]:
+        print(' ', msgid)
+    print('end skips')
+
+def dump_pickle(database_info):
+    outfile = database_info[1] or database_info[2]
+    if outfile:
+        print('Saving pickle to', database_info[2])
+        with open(outfile, mode='wb') as f:
+            try:
+                pickle.dump(database_info[0], f)
+            except Exception as e:
+                print('pickling failed:', e)
+    else:
+        print('There is no file to dump a pickle to.')
 
 def find_and_load_pickle(path):
     """
@@ -92,28 +134,28 @@ def test_pickle():
         filename = 'x' + filename
     filename = '/tmp/' + filename
 
-    print("TESTING no file provided...")
+    print('TESTING no file provided...')
     tests += 1
     result = find_and_load_pickle(None)
-    print("RESULT:", result)
+    print('RESULT:', result)
     if ({}, None, None) != result:
         print('handling new database:', filename, 'FAILED')
         failures += 1
 
-    print("TESTING nonexistent file provided...")
+    print('TESTING nonexistent file provided...')
     tests += 1
     result = find_and_load_pickle(filename)
-    print("RESULT:", result)
+    print('RESULT:', result)
     if ({}, None, filename) != result:
         print('handling new database:', filename, 'FAILED')
         failures += 1
 
-    print("TESTING corrupt file provided...")
+    print('TESTING corrupt file provided...')
     tests += 1
     with open(filename, mode='wb') as f:
         f.write(b'}\x0a')
     result = find_and_load_pickle(filename)
-    print("RESULT:", result)
+    print('RESULT:', result)
     if ({} != result[0]
             or not isinstance(result[1], int)
             or not result[2].startswith('/tmp/')
@@ -123,14 +165,14 @@ def test_pickle():
     os.remove(filename)
     os.remove(result[2])
 
-    print("TESTING valid file provided...")
+    print('TESTING valid file provided...')
     tests += 1
     with open(filename, mode='wb') as f:
-        pickle.dump({"XXX": {"message-id": "XXX"}}, f)
+        pickle.dump({'XXX': {'message-id': 'XXX'}}, f)
     result = find_and_load_pickle(filename)
-    print("RESULT:", result)
+    print('RESULT:', result)
     os.remove(filename)
-    if {"XXX": {"message-id": "XXX"}} != result[0]:
+    if {'XXX': {'message-id': 'XXX'}} != result[0]:
         print('handling existing database:', filename, 'FAILED')
         failures += 1
 
@@ -149,24 +191,23 @@ def test_parser():
 if __name__ == '__main__':
     # get the mailboxes
     parser = argparse.ArgumentParser(description='Index mailboxes.')
-    parser.add_argument('mailboxes', type=str, nargs='+',
+    parser.add_argument('mailboxes', type=str, nargs='*',
                         help='mailbox or directory containing mailboxes')
     parser.add_argument('--pickle', type=str, nargs='?',
-                        const='~/maildb.pck',
+                        const=os.path.expanduser('~/maildb.pck'),
                         help='Use PICKLE to save db.')
     # #### CONFIG is currently unused.
     parser.add_argument('--config', type=str, nargs='?',
                         # #### Figure out where the default CONFIG belongs.
-                        const='~/maildb.ini',
+                        const=os.path.expanduser('~/maildb.ini'),
                         help='Use CONFIG to configure this program.')
     args = parser.parse_args()
 
     db_info = find_and_load_pickle(args.pickle)
-    print("(database, fd, path) =", db_info)
-
     db = db_info[0]
     for box in args.mailboxes:
         print('processing', box)
         process_mailbox(box, db)
+    dump_pickle(db_info)
 
-    summarize_duplicates(db)
+    summarize_database(db)
