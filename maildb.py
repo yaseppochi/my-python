@@ -24,10 +24,7 @@
 # 5.  Add a function to merge database pickles.  Add a CLI argument.
 # 7.  Add a function to identify list posts.
 # 8.  Add a function to prioritize deletions.
-# 9.  Need to expand file names in case not called from shell.
 # 10. Add functionality to migrate database schema.
-# 11. Reorganize imports to separate library functionality from reporting,
-#     testing, and debugging infrastructure.
 # 12. It's hard to see how the database can be reliably updated with additions
 #     to a mailbox because addition to mailbox isn't timestamped.  It makes
 #     sense to use a database other than a dictionary only if it's
@@ -35,15 +32,41 @@
 #     but maybe the contortions in find_and_load_pickle are unnecessary.
 #     Refactor to emphasize the "one pass" use cases?
 # 13. Need to check for the case of no pickle and no input files?
-# 14. Refactor argument parser to distinguish the default "keep" mailbox, and
-#     present the "k(eep), m(ove to duplicates), d(elete)" dialog efficiently.
 # 15. Refactor database entries to use namedtuple?
 # 16. Add functionality to pretty-print database entries field by field for
 #     easy comparison.  Use these to implement #2.
+# 17. Use curses for keyboard input?  Here's a getch() from derived from an
+#     ActiveState recipe, but claimed the tcgetattr call fails on Mac OS X.
+#     # https://stackoverflow.com/questions/510357/
+#     # python-read-a-single-character-from-the-user
+#     def _find_getch():
+#         try:
+#             import termios
+#         except ImportError:
+#             # Non-POSIX. Return msvcrt's (Windows') getch.
+#             import msvcrt
+#             return msvcrt.getch
+#
+#         # POSIX system. Create and return a getch that manipulates the tty.
+#         import sys, tty
+#         def _getch():
+#             fd = sys.stdin.fileno()
+#             old_settings = termios.tcgetattr(fd)
+#             try:
+#                 tty.setraw(fd)
+#                 ch = sys.stdin.read(1)
+#             finally:
+#                 termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+#             return ch
+#
+#         return _getch
+# 18. Move the argument parser to a separate function.
+
+# getch = _find_getch()
 
 # Code
+# Some imports are not used in the library, so done in tests and __main__.
 
-import argparse
 from collections import Counter
 import email
 import email.parser
@@ -51,7 +74,6 @@ from email.contentmanager import raw_data_manager
 import email.policy
 from hashlib import sha1
 import mailbox
-import os
 import os.path
 import pickle
 
@@ -211,6 +233,7 @@ def test_pickle():
             or not result[2].endswith('random.pck')):
         print('handling corrupt database:', filename, 'FAILED')
         failures += 1
+    import os
     os.remove(filename)
     os.remove(result[2])
 
@@ -231,17 +254,20 @@ def test_pickle():
         print(failures, 'of', tests, 'test_pickle tests failed!') 
         
 
-def test_parser():
+def test_parser(args):
     print('mailboxes\t', args.mailboxes,
           '\ndatabase pickle\t', args.pickle,
           '\nconfiguration file\t', args.config)
 
 # main program
 if __name__ == '__main__':
+    import argparse
     # get the mailboxes
     parser = argparse.ArgumentParser(description='Index mailboxes.')
+    parser.add_argument('target', type=str, nargs='*',
+                        help='mailbox to clean dupes from')
     parser.add_argument('mailboxes', type=str, nargs='*',
-                        help='mailbox or directory containing mailboxes')
+                        help='more mailboxes to index')
     parser.add_argument('--pickle', type=str, nargs='?',
                         const=os.path.expanduser('~/maildb.pck'),
                         help='Use PICKLE to save db.')
@@ -258,10 +284,11 @@ if __name__ == '__main__':
           ', ', db_info[2],
           sep='')
     db = db_info[0]
-    for box in args.mailboxes:
+    all_mailboxes = [args.target].extend(args.mailboxes)
+    for box in all_mailboxes:
         print('processing', box)
         process_mailbox(box, db)
-    if args.mailboxes:
+    if args.target:
         dump_pickle(db_info)
 
     summarize_database(db)
