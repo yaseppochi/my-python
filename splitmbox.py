@@ -10,6 +10,7 @@
 # 1.  Make .d dir if necessary and put splits there.
 # 2.  Resplit.
 # 3.  More flexible seasonality.
+# 4.  Handle dates like 'Thu, 10 Oct 2019 00:36 +0200'.
 
 from mailbox import mbox
 import re
