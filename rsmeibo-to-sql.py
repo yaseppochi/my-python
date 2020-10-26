@@ -10,6 +10,8 @@ ay = today.year - (1 if today.month < 4 else 0)
 csv_files = glob.glob(f"RSMeibo_{ay}_*.csv")
 # 2017: "RSMeibo_2017_FH11011.csv
 # 2016: "RSMeibo_2016_FH11011.csv", "RSMeibo_2016_FH61041.csv"
+print(csv_files)
+
 meibo = []
 ids = set()
 
@@ -30,11 +32,26 @@ meibo.append(["99","199954321","有座 例","ユーザ レイ"])
 with open("maillist", "w") as f:
     for row in meibo[1:]:
         # was "u.tsukuba.ac.jp" in 2016 and earlier
-        print(f'"{row[2]}" <s{row[1][2:9]}@s.tsukuba.ac.jp>', file=f)
+        print(f'"{row[2]}" <s{row[1][2:9]}@u.tsukuba.ac.jp>', file=f)
 
 with open("meibo", "w") as f:
     for row in meibo:
         print(row[1:] + row[:1], file=f)
+
+password_map = {"199954321" : "199954321"}
+fake_password = "This\tis\tnot\tthe\tpassword\tyou're\tlooking\tfor."
+with open("社工専門英語・社会工学英語未登録者.csv", "r", encoding="utf-8") as f:
+    reader = csv.reader(f)
+    next(reader)                        # skip header
+    for row in reader:
+        if row[0]:
+            if row[0] in password_map:
+                print(f"{row[0]} already in group map.")
+            password_map[row[0]] = row[0]
+        if row[3]:
+            if row[3] in password_map:
+                print(f"{row[3]} already in group map.")
+            password_map[row[3]] = fake_password
 
 # NOTE: Idiot Mediawiki insists on user names being capitalized.
 #   So if we insert user names that start with lower case, it bitches that
@@ -51,7 +68,7 @@ fmt = "".join(["INSERT `user` SET user_newpassword = ",
                "user_password = ",
                "CONCAT(':B:35942d3d:', MD5(CONCAT('35942d3d-', MD5('{}')))), ",
                "user_name = 'S{}', user_real_name='{}', ",
-               "user_email = 's{}@s.tsukuba.ac.jp',",
+               "user_email = 's{}@u.tsukuba.ac.jp',",
                "user_touched = '{}';",
                ])
 
@@ -61,13 +78,23 @@ with open("wikiusers.sql", "w") as f:
     for row in meibo[1:]:
         id9 = row[1]
         id7 = id9[2:]
-        print(fmt.format(id9, id9, id7, row[2], id7, stamp), file=f)
+        pwd = password_map[id9]
+        print(fmt.format(pwd, pwd, id7, row[2], id7, stamp), file=f)
     print("UPDATE `user` SET user_email = 'turnbull.stephen.fw@tsukuba.ac.jp' "
           "WHERE user_name = 'S9954321';", file=f)
-fmt = "".join(["UPDATE `user` SET user_email = 's{}@s.tsukuba.ac.jp' "
+fmt = "".join(["UPDATE `user` SET user_email = 's{}@u.tsukuba.ac.jp' "
                "WHERE user_name = 'S{}';"
                ])
+
 with open("updateusers.sql", "w") as f:
     for row in meibo[1:]:
         id7 = row[1][2:9]
         print(fmt.format(id7, id7), file=f)
+
+with open("importusers.csv", "w") as f:
+    for row in meibo[1:-1]:             # omit header and example user
+        id9 = row[1]
+        id7 = id9[2:]
+        pwd = password_map[id9]
+        print(f"S{id7},{pwd},s{id7}@u.tsukuba.ac.jp,{row[2]}", file=f)
+    print("S9954321,199954321,turnbull@sk.tsukuba.ac.jp,有座 例", file=f)
