@@ -1,5 +1,8 @@
 # requires Python >= 3.6 for f-strings
 
+# Not sure what's going on, maybe direct access to MySQL db doesn't work now?
+# Need to use ImportUsers extension?  Does that work?  I don't remember....
+
 import csv
 import datetime
 import glob
@@ -47,11 +50,16 @@ with open("社工専門英語・社会工学英語未登録者.csv", "r", encodi
         if row[0]:
             if row[0] in password_map:
                 print(f"{row[0]} already in group map.")
-            password_map[row[0]] = row[0]
+            password_map[row[0]] = fake_password
         if row[3]:
             if row[3] in password_map:
                 print(f"{row[3]} already in group map.")
-            password_map[row[3]] = fake_password
+            password_map[row[3]] = row[3]
+
+print(f"Password map ({len(password_map)} items)")
+for row in password_map.items():
+    print(row)
+print("Password map done")
 
 # NOTE: Idiot Mediawiki insists on user names being capitalized.
 #   So if we insert user names that start with lower case, it bitches that
@@ -82,10 +90,10 @@ with open("wikiusers.sql", "w") as f:
         print(fmt.format(pwd, pwd, id7, row[2], id7, stamp), file=f)
     print("UPDATE `user` SET user_email = 'turnbull.stephen.fw@tsukuba.ac.jp' "
           "WHERE user_name = 'S9954321';", file=f)
+
 fmt = "".join(["UPDATE `user` SET user_email = 's{}@u.tsukuba.ac.jp' "
                "WHERE user_name = 'S{}';"
                ])
-
 with open("updateusers.sql", "w") as f:
     for row in meibo[1:]:
         id7 = row[1][2:9]
@@ -96,5 +104,6 @@ with open("importusers.csv", "w") as f:
         id9 = row[1]
         id7 = id9[2:]
         pwd = password_map[id9]
-        print(f"S{id7},{pwd},s{id7}@u.tsukuba.ac.jp,{row[2]}", file=f)
-    print("S9954321,199954321,turnbull@sk.tsukuba.ac.jp,有座 例", file=f)
+        if pwd != fake_password:
+            print(f"S{id7},{pwd},s{id7}@u.tsukuba.ac.jp,{row[2]}", file=f)
+    #print("S9954321,199954321,turnbull@sk.tsukuba.ac.jp,有座 例", file=f)
