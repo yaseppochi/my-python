@@ -33,15 +33,17 @@ def m2n(s):
         return None
 
 def tuple_from_RFC822_date(field):
-    m = RFC822_DATE_RE.match(field)
-    return (m.group(1),
-            int(m.group(2)),
-            m2n(m.group(3)),
-            int(m.group(4)),
-            int(m.group(5)),
-            int(m.group(6)),
-            int(m.group(7)),
-            int(m.group(8))) if m else None
+    if isinstance(field, str):
+        m = RFC822_DATE_RE.match(field)
+        return (m.group(1),
+                int(m.group(2)),
+                m2n(m.group(3)),
+                int(m.group(4)),
+                int(m.group(5)),
+                int(m.group(6)),
+                int(m.group(7)),
+                int(m.group(8))) if m else None
+    return None
 
 def split_by_date(path, frequency):
     """
